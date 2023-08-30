@@ -13,6 +13,13 @@ pub fn add_words<const S: usize>(a: &[u8; S], b: &[u8; S]) -> [u8; S] {
     result
 }
 
+/// Adds 2 slices in F_2^8
+pub fn add_slices(a: &[u8], b: &[u8]) -> Vec<u8> {
+    a.into_iter().copied()
+        .zip(b.into_iter().copied())
+        .map(|(a, b)| a ^ b)
+        .collect()
+}
 /// Adds 2 bytes in F_2^8
 pub fn add(a: u8, b: u8) -> u8 {
     a ^ b

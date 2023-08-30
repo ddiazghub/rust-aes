@@ -24,10 +24,10 @@ mod size {
 
 type InitVector = Block;
 
-pub enum Mode {
+pub enum Mode<'a> {
     ECB,
     CBC(InitVector),
-    Counter
+    Counter(&'a [u8]),
 }
 
 /// An AES Key of size T
@@ -37,14 +37,14 @@ type Key<const T: usize> = [u8; T];
 type Keys<const K: usize> = [Block; K];
 
 /// AES encryption algorithm
-pub struct AES<const K: usize> {
+pub struct AES<'a, const K: usize> {
     /// Round keys used for encryption
     keys: Keys<K>,
-    mode: Mode
+    mode: Mode<'a>
 }
 
-impl<const K: usize> AES<K> {
-    pub fn with_keys(keys: Keys<K>, mode: Mode) -> Self {
+impl<'a, const K: usize> AES<'a, K> {
+    pub fn with_keys(keys: Keys<K>, mode: Mode<'a>) -> Self {
         Self {
             keys,
             mode
@@ -55,7 +55,7 @@ impl<const K: usize> AES<K> {
         match &self.mode {
             Mode::ECB => self.ecb_encrypt(message),
             Mode::CBC(iv) => self.cbc_encrypt(message, iv),
-            Mode::Counter => self.ecb_encrypt(message)
+            Mode::Counter(ci) => self.counter_encrypt(message, ci)
         }
     }
 
@@ -63,7 +63,7 @@ impl<const K: usize> AES<K> {
         match self.mode {
             Mode::ECB => self.ecb_decrypt(ciphertext),
             Mode::CBC(_) => self.cbc_decrypt(ciphertext),
-            Mode::Counter => self.ecb_decrypt(ciphertext)
+            Mode::Counter(ci) => self.counter_encrypt(ciphertext, ci)
         }
     }
 
@@ -149,6 +149,50 @@ impl<const K: usize> AES<K> {
         }
 
         ciphertext
+    }
+
+    pub fn counter_encrypt(&self, message: &[u8], ci: &[u8]) -> Vec<u8> {
+        if cfg!(debug_assertions) {
+            println!("AES Counter encryption/decryption:");
+            println!("Input: {message:x?}");
+            println!("");
+        }
+
+        let (len_iv, iv) = Self::get_iv(ci);
+        let (counter_max, mut counter) = Self::get_counter(len_iv);
+        let mut ciphertext = Vec::new();
+
+        for block in Self::partition(message) {
+            let iv_counter = Self::iv_counter_concat(&iv, len_iv, counter);
+            let encrypted = self.encrypt_block(iv_counter);
+            ciphertext.extend_from_slice(&f256::add_slices(&encrypted, block));
+            counter = (counter + 1) & counter_max;
+        }
+
+        if cfg!(debug_assertions) {
+            println!("Encrypted/Decrypted: {ciphertext:x?}");
+        }
+
+        ciphertext
+    }
+
+    fn get_iv(ci: &[u8]) -> (usize, Block) {
+        let mut iv: Block = Default::default();
+        iv[..ci.len()].copy_from_slice(ci);
+
+        (ci.len(), iv)
+    }
+
+    fn get_counter(len_iv: usize) -> (u128, u128) {
+        ((1 << size::BLOCK - len_iv) - 1, 0)
+    }
+
+    fn iv_counter_concat(iv: &Block, len_iv: usize, counter: u128) -> Block {
+        let mut iv_counter = iv.clone();
+        let counter_bytes = counter.to_be_bytes();
+        iv_counter[len_iv..].copy_from_slice(&counter_bytes[counter_bytes.len() - (size::BLOCK - len_iv)..]);
+
+        iv_counter
     }
 
     pub fn inv_partial_round(&self, mut bytes: Block, key: usize) -> Block {

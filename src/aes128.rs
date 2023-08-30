@@ -7,14 +7,14 @@ pub const ITERS: usize = 10;
 pub const KEYS: usize = ROUNDS + 1;
 
 /// AES encryption algorithm using a 128 bit key
-pub type AES128 = AES<{KEYS}>;
+pub type AES128<'a> = AES<'a, {KEYS}>;
 
 /// A Key with a size of 128 bits
 pub type Key128 = Block;
 
-impl AES128 {
+impl<'a> AES128<'a> {
     /// AES encryption algorithm using a 128 bit key
-    pub fn new(key: Key128, mode: Mode) -> Self {
+    pub fn new(key: Key128, mode: Mode<'a>) -> Self {
         Self {
             keys: Self::key_expand(key),
             mode
@@ -22,7 +22,7 @@ impl AES128 {
     }
 
     /// Expands the given key into round keys
-    fn expand(key: &Key128, i: usize) -> Key128 {
+    pub fn expand(key: &Key128, i: usize) -> Key128 {
         let prev = i - 1;
         let last_word = key[key.len() - size::WORD..].try_into().unwrap();
         let mut words: [u32; KEY_INT_LEN] = Self::key_to_words(&key);
@@ -139,13 +139,45 @@ mod tests {
             0xee, 0x15, 0xc2, 0x23,
             0xd9, 0x44, 0x3e, 0x6f,
             0x75, 0x83, 0xda, 0x15,
-            0xa2, 0x8b, 0x6e, 0x2f,        ];
+            0xa2, 0x8b, 0x6e, 0x2f,
+        ];
 
         let aes = AES128::new(KEY, Mode::CBC(IV.clone()));
         aes.test(&MESSAGE2, &expected2);
         aes.test(&MESSAGE3, &expected3);
     }
 
+    #[test]
+    fn test_aes128_counter() {
+        let expected2 =[
+            0x0c, 0xc1, 0x94, 0x5c,
+            0x5d, 0xcd, 0x43, 0x93,
+            0x0a, 0x16, 0x50, 0x7b,
+            0xd7, 0x71, 0x16, 0x82,
+            0x99, 0x6b, 0x4a, 0x54,
+            0x8f, 0x2b, 0x9d, 0xcd,
+        ];
+
+        let expected3 = [
+            0x0c, 0xc1, 0x94, 0x5c,
+            0x5d, 0xcd, 0x43, 0x93,
+            0x0a, 0x16, 0x50, 0x7b,
+            0xd7, 0x71, 0x16, 0x82,
+            0x99, 0x6b, 0x4a, 0x54,
+            0x8f, 0x2b, 0x9d, 0xcd,
+            0x6a, 0x9c, 0x33, 0x48,
+            0x08, 0xe0, 0xb8, 0xe3,
+            0x66, 0x86, 0x2a, 0xaa,
+            0xaf, 0x27, 0x70, 0x42,
+            0x17, 0x0a, 0x44, 0x2c,
+            0xb8, 0x81, 0xb2, 0x93,
+            0x01, 0x1e,
+        ];
+
+        let aes = AES128::new(KEY, Mode::Counter(&[0; 10]));
+        aes.test(&MESSAGE2, &expected2);
+        aes.test(&MESSAGE3, &expected3);
+    }
 
     #[test]
     fn test_key_expansion() {

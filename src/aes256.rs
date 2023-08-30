@@ -6,15 +6,15 @@ pub const ROUNDS: usize = 14;
 pub const ITERS: usize = 7;
 pub const KEYS: usize = ROUNDS + 1;
 
-/// AES encryption algorithm using a 192 bit key
-pub type AES256 = AES<{KEYS}>;
+/// AES encryption algorithm using a 256 bit key
+pub type AES256<'a> = AES<'a, {KEYS}>;
 
-/// A Key with a size of 192 bits
+/// A Key with a size of 256 bits
 pub type Key256 = Key<{aes256::KEY_LEN}>;
 
-impl AES256 {
-    /// AES encryption algorithm using a 128 bit key
-    pub fn new(key: Key256, mode: Mode) -> Self {
+impl<'a> AES256<'a> {
+    /// AES encryption algorithm using a 256 bit key
+    pub fn new(key: Key256, mode: Mode<'a>) -> Self {
         Self {
             keys: Self::key_expand(key),
             mode
