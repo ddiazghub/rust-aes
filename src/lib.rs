@@ -44,6 +44,7 @@ pub struct AES<'a, const K: usize> {
 }
 
 impl<'a, const K: usize> AES<'a, K> {
+    /// Creates an AES instance with the given array of keys
     pub fn with_keys(keys: Keys<K>, mode: Mode<'a>) -> Self {
         Self {
             keys,
@@ -51,6 +52,7 @@ impl<'a, const K: usize> AES<'a, K> {
         }
     }
 
+    /// Encrypts a message
     pub fn encrypt(&self, message: &[u8]) -> Vec<u8> {
         match &self.mode {
             Mode::ECB => self.ecb_encrypt(message),
@@ -59,6 +61,7 @@ impl<'a, const K: usize> AES<'a, K> {
         }
     }
 
+    /// Decrypts a message
     pub fn decrypt(&self, ciphertext: &[u8]) -> Vec<u8> {
         match self.mode {
             Mode::ECB => self.ecb_decrypt(ciphertext),
@@ -67,6 +70,7 @@ impl<'a, const K: usize> AES<'a, K> {
         }
     }
 
+    /// Does an AES round without the mix_columns step
     pub fn partial_round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = Self::byte_sub(bytes);
         bytes = BlockMatrix(bytes).shift_rows().0;
@@ -74,6 +78,7 @@ impl<'a, const K: usize> AES<'a, K> {
         f256::add_words(&bytes, &self.keys[key])
     }
 
+    /// Does an AES round
     pub fn round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = Self::byte_sub(bytes);
         bytes = BlockMatrix(bytes).shift_rows().mix_columns().0;
@@ -81,7 +86,7 @@ impl<'a, const K: usize> AES<'a, K> {
         f256::add_words(&bytes, &self.keys[key])
     }
 
-    /// Encrypt the given message
+    /// Encrypt a single block
     pub fn encrypt_block(&self, message: Block) -> Block {
         if cfg!(debug_assertions) {
             println!("Block encryption:");
@@ -104,6 +109,7 @@ impl<'a, const K: usize> AES<'a, K> {
         ciphertext
     }
 
+    /// Encrypts a message using the ECB mode
     pub fn ecb_encrypt(&self, message: &[u8]) -> Vec<u8> {
         let padded = Self::pad(message);
 
@@ -125,6 +131,7 @@ impl<'a, const K: usize> AES<'a, K> {
         ciphertext
     }
 
+    /// Encrypts a message using the CBC mode
     pub fn cbc_encrypt(&self, message: &[u8], iv: &Block) -> Vec<u8> {
         let padded = Self::pad(message);
 
@@ -151,6 +158,7 @@ impl<'a, const K: usize> AES<'a, K> {
         ciphertext
     }
 
+    /// Encrypts a message using the Counter mode
     pub fn counter_encrypt(&self, message: &[u8], ci: &[u8]) -> Vec<u8> {
         if cfg!(debug_assertions) {
             println!("AES Counter encryption/decryption:");
@@ -187,6 +195,7 @@ impl<'a, const K: usize> AES<'a, K> {
         ((1 << size::BLOCK - len_iv) - 1, 0)
     }
 
+    /// AES counter mode IV and counter concatenation
     fn iv_counter_concat(iv: &Block, len_iv: usize, counter: u128) -> Block {
         let mut iv_counter = iv.clone();
         let counter_bytes = counter.to_be_bytes();
@@ -195,6 +204,7 @@ impl<'a, const K: usize> AES<'a, K> {
         iv_counter
     }
 
+    /// Does an inverse AES round without the mix_columns step
     pub fn inv_partial_round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = f256::add_words(&bytes, &self.keys[key]);
         bytes = BlockMatrix(bytes).inv_shift_rows().0;
@@ -202,6 +212,7 @@ impl<'a, const K: usize> AES<'a, K> {
         Self::inv_byte_sub(bytes)
     }
 
+    /// Does an inverse AES round
     pub fn inv_round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = f256::add_words(&bytes, &self.keys[key]);
         bytes = BlockMatrix(bytes).inv_mix_columns().inv_shift_rows().0;
@@ -232,6 +243,7 @@ impl<'a, const K: usize> AES<'a, K> {
         message
     }
 
+    /// Decrypts a message using the ECB mode
     pub fn ecb_decrypt(&self, ciphertext: &[u8]) -> Vec<u8> {
         if cfg!(debug_assertions) {
             println!("AES ECB decryption:");
@@ -252,6 +264,7 @@ impl<'a, const K: usize> AES<'a, K> {
         message
     }
 
+    /// Decrypts a message using the CBC mode
     pub fn cbc_decrypt(&self, ciphertext: &[u8]) -> Vec<u8> {
         if cfg!(debug_assertions) {
             println!("AES CBC decryption:");
@@ -328,6 +341,7 @@ impl<'a, const K: usize> AES<'a, K> {
         bytes
     }
 
+    /// Pads a message so that the number of bytes in the message MOD 16 = 0
     fn pad(message: &[u8]) -> Vec<u8> {
         let padding = (size::BLOCK - message.len() % size::BLOCK) % size::BLOCK;
         let mut padded = Vec::from_iter(message.into_iter().copied());
@@ -336,6 +350,7 @@ impl<'a, const K: usize> AES<'a, K> {
         padded
     }
 
+    /// Unpads a padded message
     fn unpad(message: &[u8]) -> Vec<u8> {
         let mut padding = message[message.len() - 1];
 
@@ -351,10 +366,12 @@ impl<'a, const K: usize> AES<'a, K> {
         Vec::from_iter(message.into_iter().take(message.len() - padding as usize).copied())
     }
 
+    /// Partitions a message into blocks
     fn partition(message: &[u8]) -> impl Iterator<Item = &[u8]> {
         message.chunks(size::BLOCK)
     }
 
+    /// Helper function for testing
     fn test(&self, message: &[u8], expected: &[u8]) {
         let ciphertext = self.encrypt(&message);
         assert_eq!(ciphertext, expected);
