@@ -1,6 +1,10 @@
-use aes::*;
+use aes::{*, aes128::Key128, aes192::Key192, aes256::Key256};
 
 pub fn main() {
+    exercise3();
+}
+
+fn exercise1() {
     let mut keys: [[u8; 16]; 11] = Default::default();
 
     let a8 = [
@@ -41,4 +45,74 @@ pub fn main() {
     println!("A9 = {a9:x?}");
     println!("A10 = {a10:x?}");
     println!("A11 = {out:x?}");
+}
+
+fn exam1() {
+    let key: Key256 = [
+        0x1c, 0x43, 0x3e, 0x71,
+        0x15, 0x84, 0x3e, 0xab,
+        0x4a, 0x20, 0xd4, 0x45,
+        0xcb, 0xe6, 0x47, 0x68,
+        0x08, 0x81, 0xcb, 0x07,
+        0x7f, 0xc5, 0x03, 0x72,
+        0xc2, 0xd7, 0x54, 0xae,
+        0x61, 0x06, 0xdd, 0x8f,
+    ];
+
+    let aes = AES256::new(key, Mode::ECB);
+    
+    for (i, key) in aes.keys().into_iter().enumerate() {
+        println!("k{i} = {}", hex::encode(key));
+    }
+}
+
+fn exercise2() {
+    let key: Key256 = [
+        0x1c, 0x43, 0x3e, 0x71,
+        0x15, 0x84, 0x3e, 0xab,
+        0x4a, 0x20, 0xd4, 0x45,
+        0xcb, 0xe6, 0x47, 0x68,
+        0x08, 0x81, 0xcb, 0x07,
+        0x7f, 0xc5, 0x03, 0x72,
+        0xc2, 0xd7, 0x54, 0xae,
+        0x61, 0x06, 0xdd, 0x8f,
+    ];
+
+    let aes = AES256::new(key, Mode::ECB);
+    
+    let messages = [
+        "4fc86c3764d13f5dbe2e89090fc49581",
+        "173c0b3879620ef70731c55eb4f26a2a",
+        "9a022558563774b7f461cfb72f196d78",
+        "b26e04d63ce379ee94a46b888af7c2ee",
+        "75af92cebbe06eb63b0b2bc2d0d86864",
+    ];
+
+    for (i, message) in messages.into_iter().enumerate() {
+        let i = i + 1;
+        let message = hex::decode(message).unwrap();
+        println!("Message {i}:");
+        let ciphertext = aes.encrypt_block(message.try_into().unwrap());
+        println!("Ciphertext {i}: {}", hex::encode(&ciphertext));
+        println!("");
+    }
+}
+
+fn exercise3() {
+    let ciphertext = hex::decode("8502e9f8a080cd7f0d57f157cf82ccb5").unwrap();
+
+    let key: Key256 = [
+        0x1c, 0x43, 0x3e, 0x71,
+        0x15, 0x84, 0x3e, 0xab,
+        0x4a, 0x20, 0xd4, 0x45,
+        0xcb, 0xe6, 0x47, 0x68,
+        0x08, 0x81, 0xcb, 0x07,
+        0x7f, 0xc5, 0x03, 0x72,
+        0xc2, 0xd7, 0x54, 0xae,
+        0x61, 0x06, 0xdd, 0x8f,
+    ];
+
+    let aes = AES256::new(key, Mode::ECB);
+    let message = aes.decrypt_block(ciphertext.try_into().unwrap());
+    println!("Ciphertext: {}", hex::encode(&message));
 }

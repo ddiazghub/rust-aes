@@ -28,13 +28,6 @@ impl<'a> AES256<'a> {
         let mut words: [u32; KEY_INT_LEN] = Self::key_to_words(&key);
         words[0] ^= Self::g(last_word, prev);
 
-        if cfg!(debug_assertions) {
-            println!("i: {i}");
-            println!("Key: {words:x?}");
-            println!("Last word: {last_word:x?}");
-            println!("");
-        }
-
         for j in 1..4 {
             words[j] ^= words[j - 1];
         }
@@ -50,11 +43,6 @@ impl<'a> AES256<'a> {
 
     /// Expands the given key into round keys
     fn key_expand(mut key: Key256) -> Keys<{KEYS}> {
-        if cfg!(debug_assertions) {
-            println!("Key expansion: {key:x?}");
-            println!("");
-        }
-
         let mut keys: Keys<{KEYS}> = Default::default();
         keys[0].copy_from_slice(&key[..size::BLOCK]);
         keys[1].copy_from_slice(&key[size::BLOCK..]);
@@ -67,11 +55,6 @@ impl<'a> AES256<'a> {
 
         key = Self::expand(&key, ITERS);
         keys.last_mut().unwrap().copy_from_slice(&key[..size::BLOCK]);
-
-        if cfg!(debug_assertions) {
-            println!("Output: {keys:x?}");
-            println!("");
-        }
 
         keys
     }

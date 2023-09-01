@@ -73,7 +73,25 @@ impl<'a, const K: usize> AES<'a, K> {
     /// Does an AES round without the mix_columns step
     pub fn partial_round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = Self::byte_sub(bytes);
-        bytes = BlockMatrix(bytes).shift_rows().0;
+
+        if key == 12 {
+            println!("B12 = {}", hex::encode(&bytes));
+        }
+
+        let matrix = BlockMatrix(bytes).shift_rows();
+
+        match key {
+            5 => println!("B5 = {:x?}", matrix.as_matrix()),
+            9 => {
+                println!("C39 = {:b}", matrix[(3, 0)]);
+                println!("C79 = {:b}", matrix[(3, 1)]);
+                println!("C99 = {:b}", matrix[(1, 2)]);
+                println!("C149 = {:b}", matrix[(2, 3)]);
+            },
+            _ => ()
+        }
+
+        let bytes = matrix.0;
 
         f256::add_words(&bytes, &self.keys[key])
     }
@@ -81,30 +99,44 @@ impl<'a, const K: usize> AES<'a, K> {
     /// Does an AES round
     pub fn round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = Self::byte_sub(bytes);
-        bytes = BlockMatrix(bytes).shift_rows().mix_columns().0;
+
+        if key == 12 {
+            println!("B12 = {}", hex::encode(&bytes));
+        }
+
+        let mut matrix = BlockMatrix(bytes).shift_rows();
+
+        if key == 5 {
+            println!("B5 = {:x?}", matrix.as_matrix());
+        }
+        
+        matrix = matrix.mix_columns();
+
+        if key == 9 {
+            println!("C39 = {:b}", matrix[(3, 0)]);
+            println!("C79 = {:b}", matrix[(3, 1)]);
+            println!("C99 = {:b}", matrix[(1, 2)]);
+            println!("C149 = {:b}", matrix[(2, 3)]);
+        }
+
+        let bytes = matrix.0;
 
         f256::add_words(&bytes, &self.keys[key])
     }
 
     /// Encrypt a single block
     pub fn encrypt_block(&self, message: Block) -> Block {
-        if cfg!(debug_assertions) {
-            println!("Block encryption:");
-            println!("Input: {message:x?}");
-            println!("");
-        }
-
         let mut ciphertext = f256::add_words(&message, &self.keys[0]);
 
         for key in 1..self.keys.len() - 1 {
+            if key == 1 {
+                println!("A1 = {}", hex::encode(&ciphertext));
+            }
+
             ciphertext = self.round(ciphertext, key);
         }
 
         ciphertext = self.partial_round(ciphertext, self.keys.len() - 1);
-
-        if cfg!(debug_assertions) {
-            println!("Encrypted block: {ciphertext:x?}");
-        }
 
         ciphertext
     }
@@ -207,7 +239,24 @@ impl<'a, const K: usize> AES<'a, K> {
     /// Does an inverse AES round without the mix_columns step
     pub fn inv_partial_round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = f256::add_words(&bytes, &self.keys[key]);
-        bytes = BlockMatrix(bytes).inv_shift_rows().0;
+        let mut matrix = BlockMatrix(bytes);
+
+        match key {
+            5 => println!("B5 = {:x?}", matrix.as_matrix()),
+            9 => {
+                println!("C39 = {:b}", matrix[(3, 0)]);
+                println!("C79 = {:b}", matrix[(3, 1)]);
+                println!("C99 = {:b}", matrix[(1, 2)]);
+                println!("C149 = {:b}", matrix[(2, 3)]);
+            },
+            _ => ()
+        }
+
+        bytes = matrix.inv_shift_rows().0;
+
+        if key == 12 {
+            println!("B12 = {}", hex::encode(&bytes));
+        }
 
         Self::inv_byte_sub(bytes)
     }
@@ -215,51 +264,54 @@ impl<'a, const K: usize> AES<'a, K> {
     /// Does an inverse AES round
     pub fn inv_round(&self, mut bytes: Block, key: usize) -> Block {
         bytes = f256::add_words(&bytes, &self.keys[key]);
-        bytes = BlockMatrix(bytes).inv_mix_columns().inv_shift_rows().0;
+        let mut matrix = BlockMatrix(bytes);
+
+        if key == 9 {
+            println!("C39 = {:b}", matrix[(3, 0)]);
+            println!("C79 = {:b}", matrix[(3, 1)]);
+            println!("C99 = {:b}", matrix[(1, 2)]);
+            println!("C149 = {:b}", matrix[(2, 3)]);
+        }
+
+        matrix = matrix.inv_mix_columns();
+        
+        if key == 5 {
+            println!("B5 = {:x?}", matrix.as_matrix());
+        }
+        
+        bytes = matrix.inv_shift_rows().0;
+
+        if key == 12 {
+            println!("B12 = {}", hex::encode(&bytes));
+        }
 
         Self::inv_byte_sub(bytes)
     }
 
     /// Decrypt the given message
     pub fn decrypt_block(&self, ciphertext: Block) -> Block {
-        if cfg!(debug_assertions) {
-            println!("Block decryption:");
-            println!("Input: {ciphertext:x?}");
-            println!("");
-        }
-
         let mut message = self.inv_partial_round(ciphertext, self.keys.len() - 1);
 
         for key in (1..self.keys.len() - 1).rev() {
             message = self.inv_round(message, key);
+
+            if key == 1 {
+                println!("A1 = {}", hex::encode(&message));
+            }
         }
 
         message = f256::add_words(&message, &self.keys[0]);
-
-        if cfg!(debug_assertions) {
-            println!("Decrypted block: {message:x?}");
-        }
 
         message
     }
 
     /// Decrypts a message using the ECB mode
     pub fn ecb_decrypt(&self, ciphertext: &[u8]) -> Vec<u8> {
-        if cfg!(debug_assertions) {
-            println!("AES ECB decryption:");
-            println!("Input: {ciphertext:x?}");
-            println!("");
-        }
-
         let message: Vec<_> = Self::partition(ciphertext)
             .flat_map(|block| self.decrypt_block(block.try_into().unwrap()))
             .collect();
 
         let message = Self::unpad(&message);
-
-        if cfg!(debug_assertions) {
-            println!("Decrypted: {message:x?}");
-        }
 
         message
     }

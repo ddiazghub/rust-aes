@@ -44,38 +44,18 @@ impl BlockMatrix {
 
     /// AES shift rows operation
     pub fn shift_rows(mut self) -> Self {
-        if cfg!(debug_assertions) {
-            println!("Shift rows:");
-            println!("Input: {self:x?}");
-        }
-
         self.shift_left(1);
         self.shift_twice(2);
         self.shift_right(3);
-
-        if cfg!(debug_assertions) {
-            println!("Output: {self:x?}");
-            println!("");
-        }
 
         self
     }
 
     /// AES inverse shift rows operation
     pub fn inv_shift_rows(mut self) -> Self {
-        if cfg!(debug_assertions) {
-            println!("Inverse shift rows:");
-            println!("Input: {self:x?}");
-        }
-
         self.shift_right(1);
         self.shift_twice(2);
         self.shift_left(3);
-
-        if cfg!(debug_assertions) {
-            println!("Output: {self:x?}");
-            println!("");
-        }
 
         self
     }
@@ -100,36 +80,28 @@ impl BlockMatrix {
 
     /// AES mix columns operations
     pub fn mix_columns(self) -> Self {
-        if cfg!(debug_assertions) {
-            println!("Mix columns:");
-            println!("Matrix: {self:x?}");
-        }
-
         let mix = mix::FORWARD.mult(&self);
-
-        if cfg!(debug_assertions) {
-            println!("Output: {mix:x?}");
-            println!("");
-        }
 
         mix
     }
 
     /// AES inverse mix columns operations
     pub fn inv_mix_columns(self) -> Self {
-        if cfg!(debug_assertions) {
-            println!("Inverse mix columns:");
-            println!("Matrix: {self:x?}");
-        }
-
         let mix = mix::INVERSE.mult(&self);
 
-        if cfg!(debug_assertions) {
-            println!("Output: {mix:x?}");
-            println!("");
+        mix
+    }
+
+    pub fn as_matrix(&self) -> [[u8; ROWS]; ROWS] {
+        let mut matrix = [[0; ROWS]; ROWS];
+
+        for i in 0..ROWS {
+            for j in 0..ROWS {
+                matrix[i][j] = self[(i, j)];
+            }
         }
 
-        mix
+        matrix
     }
 }
 
