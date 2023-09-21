@@ -1,3 +1,3 @@
 # rust-aes
 
-Rust implementation of the AES encryption standard
+Rust implementation of the AES or Rjiendael encryption standard
